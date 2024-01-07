@@ -79,6 +79,19 @@ lazy_static! {
         OpCode::new(0x10, "BPL", 2, 2/* +1 if branch succeeds +2 if new page */, AddressingMode::NoneAddressing),
         OpCode::new(0x50, "BVC", 2, 2/* +1 if branch succeeds +2 if new page */, AddressingMode::NoneAddressing),
         OpCode::new(0x70, "BVS", 2, 2/* +1 if branch succeeds +2 if new page */, AddressingMode::NoneAddressing),
+        OpCode::new(0x18, "CLC", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0xd8, "CLD", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0x58, "CLI", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0xb8, "CLV", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0xc9, "CMP", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xc5, "CMP", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xd5, "CMP", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0xcd, "CMP", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0xdd, "CMP", 3, 4/* +1 if page crossed */, AddressingMode::AbsoluteX),
+        OpCode::new(0xd9, "CMP", 3, 4/* +1 if page crossed */, AddressingMode::AbsoluteY),
+        OpCode::new(0xc1, "CMP", 2, 6, AddressingMode::IndirectX),
+        OpCode::new(0xd1, "CMP", 2, 5/* +1 if page crossed */, AddressingMode::IndirectY),
+
     ];
     pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {
         let mut map = HashMap::new();

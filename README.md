@@ -24,11 +24,11 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] BRK - Force Interrupt (Needs improvement)
 - [x] BVC - Branch if Overflow Clear
 - [x] BVS - Branch if Overflow Set
-- [ ] CLC - Clear Carry Flag
-- [ ] CLD - Clear Decimal Mode
-- [ ] CLI - Clear Interrupt Disable
-- [ ] CLV - Clear Overflow Flag
-- [ ] CMP - Compare Accumulator
+- [x] CLC - Clear Carry Flag
+- [x] CLD - Clear Decimal Mode
+- [x] CLI - Clear Interrupt Disable
+- [x] CLV - Clear Overflow Flag
+- [x] CMP - Compare Accumulator
 - [ ] CPX - Compare X Register
 - [ ] CPY - Compare Y Register
 - [ ] DEC - Decrement Memory

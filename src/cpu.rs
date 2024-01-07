@@ -178,13 +178,30 @@ impl CPU {
                 // BVC
                 0x70 => self.branch(self.status.contains(CpuFlags::OVERFLOW)),
 
+                // CLC
+                0x18 => self.status.remove(CpuFlags::CARRY),
+
+                // CLD
+                0xd8 => self.status.remove(CpuFlags::DECIMAL_MODE),
+
+                // CLI
+                0x58 => self.status.remove(CpuFlags::INTERRUPT_DISABLE),
+
+                // CLV
+                0xb8 => self.status.remove(CpuFlags::OVERFLOW),
+
+                // CMP
+                0xc9 | 0xc5 | 0xd5 | 0xcd | 0xdd | 0xd9 | 0xc1 | 0xd1 => {
+                    self.cmp(&opcode.addr_mode, self.regs[RegIdx::A as usize]);
+                }
+
                 // LDA
                 0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 => {
                     self.lda(&opcode.addr_mode);
                     // self.pc += 1;
                 }
 
-                //STA
+                // STA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.addr_mode);
                 }
@@ -349,6 +366,18 @@ impl CPU {
 
         self.status.set(CpuFlags::NEGATIVE, data & 0b10000000 > 0);
         self.status.set(CpuFlags::OVERFLOW, data & 0b01000000 > 0);
+    }
+
+    fn cmp(&mut self, mode: &AddressingMode, value: u8) {
+        let addr = self.get_operand_address(mode);
+
+        let data = self.mem_read(addr);
+
+        let cmp_result = self.regs[RegIdx::A as usize] - data;
+
+        self.status.set(CpuFlags::CARRY, cmp_result <= value);
+
+        self.update_zero_and_negative_flags(cmp_result);
     }
 
     fn lda(&mut self, mode: &AddressingMode) {
