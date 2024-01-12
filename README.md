@@ -29,8 +29,8 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] CLI - Clear Interrupt Disable
 - [x] CLV - Clear Overflow Flag
 - [x] CMP - Compare Accumulator
-- [ ] CPX - Compare X Register
-- [ ] CPY - Compare Y Register
+- [x] CPX - Compare X Register
+- [x] CPY - Compare Y Register
 - [ ] DEC - Decrement Memory
 - [ ] DEX - Decrement X Register
 - [ ] DEY - Decrement Y Register

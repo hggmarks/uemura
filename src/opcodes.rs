@@ -91,6 +91,12 @@ lazy_static! {
         OpCode::new(0xd9, "CMP", 3, 4/* +1 if page crossed */, AddressingMode::AbsoluteY),
         OpCode::new(0xc1, "CMP", 2, 6, AddressingMode::IndirectX),
         OpCode::new(0xd1, "CMP", 2, 5/* +1 if page crossed */, AddressingMode::IndirectY),
+        OpCode::new(0xe0, "CPX", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xe4, "CPX", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xec, "CPX", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0xc0, "CPY", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0xc4, "CPY", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0xcc, "CPY", 3, 4, AddressingMode::Absolute),
 
     ];
     pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {

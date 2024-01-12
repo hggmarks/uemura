@@ -195,6 +195,16 @@ impl CPU {
                     self.cmp(&opcode.addr_mode, self.regs[RegIdx::A as usize]);
                 }
 
+                // CPX
+                0xe0 | 0xe4 | 0xec => {
+                    self.cmp(&opcode.addr_mode, self.regs[RegIdx::X as usize]);
+                }
+
+                // CPY
+                0xc0 | 0xc4 | 0xcc => {
+                    self.cmp(&opcode.addr_mode, self.regs[RegIdx::Y as usize]);
+                }
+
                 // LDA
                 0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 => {
                     self.lda(&opcode.addr_mode);
