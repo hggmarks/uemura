@@ -28,7 +28,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum RegIdx {
     A = 0,
     // Status,
@@ -204,6 +204,17 @@ impl CPU {
                 0xc0 | 0xc4 | 0xcc => {
                     self.cmp(&opcode.addr_mode, self.regs[RegIdx::Y as usize]);
                 }
+
+                // DEC
+                0xc6 | 0xd6 | 0xce | 0xde => {
+                    self.dec(&opcode.addr_mode);
+                }
+
+                // DEX
+                0xca => self.dec_reg(RegIdx::X),
+
+                // DEY
+                0x88 => self.dec_reg(RegIdx::Y),
 
                 // LDA
                 0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 => {
@@ -388,6 +399,21 @@ impl CPU {
         self.status.set(CpuFlags::CARRY, cmp_result <= value);
 
         self.update_zero_and_negative_flags(cmp_result);
+    }
+
+    fn dec(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+
+        let data = self.mem_read(addr).wrapping_sub(1);
+
+        self.mem_write(addr, data);
+
+        self.update_zero_and_negative_flags(data);
+    }
+
+    fn dec_reg(&mut self, reg: RegIdx) {
+        self.regs[reg as usize] = self.regs[reg as usize].wrapping_sub(1);
+        self.update_zero_and_negative_flags(self.regs[reg as usize]);
     }
 
     fn lda(&mut self, mode: &AddressingMode) {

@@ -31,9 +31,9 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] CMP - Compare Accumulator
 - [x] CPX - Compare X Register
 - [x] CPY - Compare Y Register
-- [ ] DEC - Decrement Memory
-- [ ] DEX - Decrement X Register
-- [ ] DEY - Decrement Y Register
+- [x] DEC - Decrement Memory
+- [x] DEX - Decrement X Register
+- [x] DEY - Decrement Y Register
 - [ ] EOR - Exclusive OR
 - [ ] INC - Increment Memory
 - [x] INX - Increment X Register
