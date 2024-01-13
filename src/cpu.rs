@@ -216,6 +216,11 @@ impl CPU {
                 // DEY
                 0x88 => self.dec_reg(RegIdx::Y),
 
+                // EOR
+                0x49 | 0x45 | 0x55 | 0x4d | 0x5d | 0x59 | 0x41 | 0x51 => {
+                    self.eor(&opcode.addr_mode);
+                }
+
                 // LDA
                 0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 => {
                     self.lda(&opcode.addr_mode);
@@ -234,7 +239,10 @@ impl CPU {
                 0xe8 => self.inx(),
 
                 //BRK
-                0x00 => return, //Break
+                0x00 => {
+                    self.status.insert(CpuFlags::BREAK);
+                    return; //Break
+                }
                 _ => todo!(),
             }
 
@@ -416,6 +424,13 @@ impl CPU {
         self.update_zero_and_negative_flags(self.regs[reg as usize]);
     }
 
+    fn eor(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        self.set_reg_a_and_update_flags(data ^ self.regs[RegIdx::A as usize]);
+    }
+
     fn lda(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
 
@@ -500,6 +515,21 @@ mod test {
         // cpu.interpret(vec![0xe8, 0xe8, 0x00]);
 
         assert_eq!(cpu.regs[RegIdx::X as usize], 1);
+    }
+
+    #[test]
+    fn test_0x49_eor_negative_zero() {
+        let mut cpu = CPU::new();
+        let mut cpu2 = CPU::new();
+        cpu.load_and_run(vec![0xa9, 0xa5, 0x49, 0x04, 0x00]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0xa1);
+        assert!(cpu.status.bits() == 0b1001_0000);
+
+        cpu2.load_and_run(vec![0xa9, 0xa5, 0x49, 0xa5, 0x00]);
+
+        assert_eq!(cpu2.regs[RegIdx::A as usize], 0x00);
+        assert!(cpu2.status.bits() == 0b0001_0010);
     }
 
     #[test]

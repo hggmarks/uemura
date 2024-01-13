@@ -103,7 +103,14 @@ lazy_static! {
         OpCode::new(0xde, "DEC", 3, 7, AddressingMode::AbsoluteX),
         OpCode::new(0xca, "DEX", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0x88, "DEY", 1, 2, AddressingMode::NoneAddressing),
-
+        OpCode::new(0x49, "EOR", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x45, "EOR", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x55, "EOR", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0x4d, "EOR", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0x5d, "EOR", 3, 4/* +1 if page crossed */, AddressingMode::AbsoluteX),
+        OpCode::new(0x59, "EOR", 3, 4/* +1 if page crossed */, AddressingMode::AbsoluteY),
+        OpCode::new(0x41, "EOR", 2, 6, AddressingMode::IndirectX),
+        OpCode::new(0x51, "EOR", 2, 5/* +1 if page crossed */, AddressingMode::IndirectY),
     ];
     pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {
         let mut map = HashMap::new();
