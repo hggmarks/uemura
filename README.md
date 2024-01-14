@@ -34,10 +34,10 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] DEC - Decrement Memory
 - [x] DEX - Decrement X Register
 - [x] DEY - Decrement Y Register
-- [ ] EOR - Exclusive OR
-- [ ] INC - Increment Memory
+- [x] EOR - Exclusive OR
+- [x] INC - Increment Memory
 - [x] INX - Increment X Register
-- [ ] INY - Increment Y Register
+- [x] INY - Increment Y Register
 - [ ] JMP - Jump
 - [ ] JSR - Jump to Subroutine
 - [x] LDA - Load Accumulator
