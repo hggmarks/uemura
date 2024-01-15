@@ -39,10 +39,10 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] INX - Increment X Register
 - [x] INY - Increment Y Register
 - [x] JMP - Jump
-- [ ] JSR - Jump to Subroutine
+- [x] JSR - Jump to Subroutine
 - [x] LDA - Load Accumulator
-- [ ] LDX - Load X Register
-- [ ] LDY - Load Y Register
+- [x] LDX - Load X Register
+- [x] LDY - Load Y Register
 - [ ] LSR - Logical Shift Right
 - [ ] NOP - No Operation
 - [ ] ORA - Logical Inclusive OR

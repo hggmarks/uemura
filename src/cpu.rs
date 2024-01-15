@@ -264,6 +264,16 @@ impl CPU {
                     self.lda(&opcode.addr_mode);
                 }
 
+                // LDX
+                0xa2 | 0xa6 | 0xb6 | 0xae | 0xbe => {
+                    self.load_reg(&opcode.addr_mode, RegIdx::X);
+                }
+
+                // LDY
+                0xa0 | 0xa4 | 0xb4 | 0xac | 0xbc => {
+                    self.load_reg(&opcode.addr_mode, RegIdx::Y);
+                }
+
                 // STA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.addr_mode);
@@ -519,6 +529,15 @@ impl CPU {
         self.update_zero_and_negative_flags(self.regs[RegIdx::A as usize]);
     }
 
+    fn load_reg(&mut self, mode: &AddressingMode, reg: RegIdx) {
+        let addr = self.get_operand_address(mode);
+
+        let data = self.mem_read(addr);
+
+        self.regs[reg as usize] = data;
+        self.update_zero_and_negative_flags(data);
+    }
+
     fn sta(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.regs[RegIdx::A as usize]);
@@ -641,6 +660,26 @@ mod test {
         cpu.load_and_run(vec![0xa9, 0x00, 0x00]);
         // cpu.interpret(vec![0xa9, 0x00, 0x00]);
         assert!(cpu.status.bits() & 0b0000_0010 == 0b10);
+    }
+
+    #[test]
+    fn test_0xa2_ldx_immediate_load_data() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa2, 0x05, 0x00]);
+
+        assert_eq!(cpu.regs[RegIdx::X as usize], 0x05);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000);
+        assert!(cpu.status.bits() & 0b1000_0000 == 0);
+    }
+
+    #[test]
+    fn test_0xa0_ldy_immediate_load_data() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![0xa0, 0x05, 0x00]);
+
+        assert_eq!(cpu.regs[RegIdx::Y as usize], 0x05);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b0000_0000);
+        assert!(cpu.status.bits() & 0b1000_0000 == 0);
     }
 
     #[test]
