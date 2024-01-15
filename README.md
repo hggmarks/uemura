@@ -38,7 +38,7 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] INC - Increment Memory
 - [x] INX - Increment X Register
 - [x] INY - Increment Y Register
-- [ ] JMP - Jump
+- [x] JMP - Jump
 - [ ] JSR - Jump to Subroutine
 - [x] LDA - Load Accumulator
 - [ ] LDX - Load X Register

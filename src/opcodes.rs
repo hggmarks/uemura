@@ -116,6 +116,9 @@ lazy_static! {
         OpCode::new(0xfe, "INC", 3, 7, AddressingMode::AbsoluteX),
         OpCode::new(0xe8, "INX", 1, 2, AddressingMode::NoneAddressing),
         OpCode::new(0xc8, "INY", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0x4c, "JMP", 3, 3, AddressingMode::Absolute),
+        OpCode::new(0x6c, "JMP", 3, 5, AddressingMode::NoneAddressing),
+        OpCode::new(0x20, "JSR", 3, 6, AddressingMode::Absolute),
     ];
     pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {
         let mut map = HashMap::new();
