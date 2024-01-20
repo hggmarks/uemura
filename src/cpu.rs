@@ -274,6 +274,12 @@ impl CPU {
                     self.load_reg(&opcode.addr_mode, RegIdx::Y);
                 }
 
+                // LSR -> ACCUMULATOR
+                0x4a => self.lsr_accumulator(),
+
+                // LSR
+                0x46 | 0x56 | 0x4e | 0x5e => self.lsr(&opcode.addr_mode),
+
                 // STA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.addr_mode);
@@ -536,6 +542,25 @@ impl CPU {
 
         self.regs[reg as usize] = data;
         self.update_zero_and_negative_flags(data);
+    }
+
+    fn lsr_accumulator(&mut self) {
+        let idx = RegIdx::A as usize;
+
+        self.status.set(CpuFlags::CARRY, self.regs[idx] & 0b1 == 1);
+
+        self.regs[idx] = self.regs[idx] >> 1;
+        self.update_zero_and_negative_flags(self.regs[idx]);
+    }
+
+    fn lsr(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+
+        let data = self.mem_read(addr);
+
+        self.status.set(CpuFlags::CARRY, data & 0b1 == 1);
+
+        self.mem_write(addr, data >> 1);
     }
 
     fn sta(&mut self, mode: &AddressingMode) {

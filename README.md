@@ -43,7 +43,7 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] LDA - Load Accumulator
 - [x] LDX - Load X Register
 - [x] LDY - Load Y Register
-- [ ] LSR - Logical Shift Right
+- [x] LSR - Logical Shift Right
 - [ ] NOP - No Operation
 - [ ] ORA - Logical Inclusive OR
 - [ ] PHA - Push Accumulator
