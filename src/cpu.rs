@@ -708,6 +708,21 @@ mod test {
     }
 
     #[test]
+    fn test_0x4a_lsr_accumulator() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![
+            0xa9, 0x69, // LDA #0x69
+            0x4a, // LSR
+            0x00,
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x69 >> 1);
+        assert!(cpu.status.bits() & 0b0000_0001 == 1);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0);
+        assert!(cpu.status.bits() & 0b1000_0000 == 0);
+    }
+
+    #[test]
     fn test_0xaa_tax_transfer_a_to_x() {
         let mut cpu = CPU::new();
         // cpu.regs[RegIdx::A as usize] = 10;
