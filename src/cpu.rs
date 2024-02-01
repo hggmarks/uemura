@@ -280,6 +280,9 @@ impl CPU {
                 // LSR
                 0x46 | 0x56 | 0x4e | 0x5e => self.lsr(&opcode.addr_mode),
 
+                // NOP
+                0xea => {}
+
                 // STA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.addr_mode);
@@ -720,6 +723,25 @@ mod test {
         assert!(cpu.status.bits() & 0b0000_0001 == 1);
         assert!(cpu.status.bits() & 0b0000_0010 == 0);
         assert!(cpu.status.bits() & 0b1000_0000 == 0);
+    }
+
+    #[test]
+    fn test_0xea_nop() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa9, 0x01, // LDA #$01
+            0xa2, 0x02, // LDX #$02
+            0xa0, 0x00, // LDY #$03
+            0xea, // NOP - No operation
+            0x00, // BRK - End of program
+        ]);
+
+        // Check that the registers and status flags are unchanged
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x01);
+        assert_eq!(cpu.regs[RegIdx::X as usize], 0x02);
+        assert_eq!(cpu.regs[RegIdx::Y as usize], 0x00);
+        assert_eq!(cpu.status.bits(), 0b0001_0010);
     }
 
     #[test]
