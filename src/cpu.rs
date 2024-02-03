@@ -283,6 +283,11 @@ impl CPU {
                 // NOP
                 0xea => {}
 
+                // ORA
+                0x09 | 0x05 | 0x15 | 0x0d | 0x1d | 0x19 | 0x01 | 0x11 => {
+                    self.ora(&opcode.addr_mode);
+                }
+
                 // STA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.addr_mode);
@@ -566,6 +571,14 @@ impl CPU {
         self.mem_write(addr, data >> 1);
     }
 
+    fn ora(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+
+        let data = self.mem_read(addr);
+
+        self.set_reg_a_and_update_flags(self.regs[RegIdx::A as usize] | data);
+    }
+
     fn sta(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.regs[RegIdx::A as usize]);
@@ -737,11 +750,49 @@ mod test {
             0x00, // BRK - End of program
         ]);
 
-        // Check that the registers and status flags are unchanged
         assert_eq!(cpu.regs[RegIdx::A as usize], 0x01);
         assert_eq!(cpu.regs[RegIdx::X as usize], 0x02);
         assert_eq!(cpu.regs[RegIdx::Y as usize], 0x00);
         assert_eq!(cpu.status.bits(), 0b0001_0010);
+    }
+
+    #[test]
+    fn test_ora_operation() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![
+            0xa9, 0x53, // LDA #$53
+            0x09, 0x0C, // ORA #$0C
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x5F);
+    }
+
+    #[test]
+    fn test_0x09_ora_immediate_zero_flag() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa9, 0x00, // LDA #$00
+            0x09, 0x00, // ORA #$00
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x00);
+        assert!(cpu.status.bits() == 0b0001_0010);
+    }
+
+    #[test]
+    fn test_ora_negative_flag() {
+        let mut cpu = CPU::new();
+        cpu.load_and_run(vec![
+            0xa9, 0x00, // LDA #$00
+            0x09, 0x80, // ORA #$80
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x80);
+        assert!(cpu.status.bits() == 0b1001_0000);
     }
 
     #[test]

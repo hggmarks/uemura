@@ -45,7 +45,7 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] LDY - Load Y Register
 - [x] LSR - Logical Shift Right
 - [x] NOP - No Operation
-- [ ] ORA - Logical Inclusive OR
+- [x] ORA - Logical Inclusive OR
 - [ ] PHA - Push Accumulator
 - [ ] PHP - Push Processor Status
 - [ ] PLA - Pull Accumulator

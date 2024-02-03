@@ -135,6 +135,14 @@ lazy_static! {
         OpCode::new(0x4e, "LSR", 3, 6, AddressingMode::Absolute),
         OpCode::new(0x5e, "LSR", 3, 7, AddressingMode::AbsoluteX),
         OpCode::new(0xea, "NOP", 1, 2, AddressingMode::NoneAddressing),
+        OpCode::new(0x09, "ORA", 2, 2, AddressingMode::Immediate),
+        OpCode::new(0x05, "ORA", 2, 3, AddressingMode::ZeroPage),
+        OpCode::new(0x15, "ORA", 2, 4, AddressingMode::ZeroPageX),
+        OpCode::new(0x0d, "ORA", 3, 4, AddressingMode::Absolute),
+        OpCode::new(0x1d, "ORA", 3, 4/* +1 if page crossed */, AddressingMode::AbsoluteX),
+        OpCode::new(0x19, "ORA", 3, 4/* +1 if page crossed */, AddressingMode::AbsoluteY),
+        OpCode::new(0x01, "ORA", 2, 6, AddressingMode::IndirectX),
+        OpCode::new(0x11, "ORA", 2, 5/* +1 if page crossed */, AddressingMode::IndirectY),
     ];
     pub static ref OPCODES_MAP: HashMap<u8, &'static OpCode> = {
         let mut map = HashMap::new();
