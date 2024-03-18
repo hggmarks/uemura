@@ -46,7 +46,7 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] LSR - Logical Shift Right
 - [x] NOP - No Operation
 - [x] ORA - Logical Inclusive OR
-- [ ] PHA - Push Accumulator
+- [x] PHA - Push Accumulator
 - [ ] PHP - Push Processor Status
 - [ ] PLA - Pull Accumulator
 - [ ] PLP - Pull Processor Status
