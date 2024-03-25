@@ -291,6 +291,9 @@ impl CPU {
                 // PHA
                 0x48 => self.stack_push(self.regs[RegIdx::A as usize]),
 
+                // PHP
+                0x08 => self.stack_push(self.status.bits()),
+
                 // STA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.addr_mode);
@@ -799,7 +802,7 @@ mod test {
     }
 
     #[test]
-    fn test_pha_operation() {
+    fn test_0x48_pha_operation() {
         let mut cpu = CPU::new();
 
         cpu.load_and_run(vec![0xa9, 0x7f, 0x48, 0x00]);
@@ -809,11 +812,22 @@ mod test {
     }
 
     #[test]
+    fn test_0x08_php_operation() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![0xa9, 0x00, 0x08, 0x00]);
+
+        assert_eq!(cpu.regs[RegIdx::SP as usize], 0xfc);
+        assert_eq!(0b0000_0010, cpu.mem_read(0x01fd));
+        assert_eq!(cpu.mem_read(0x01fd), 0b0000_0010);
+    }
+
+    #[test]
     fn test_0xaa_tax_transfer_a_to_x() {
         let mut cpu = CPU::new();
         // cpu.regs[RegIdx::A as usize] = 10;
         cpu.load_and_run(vec![0xa9, 0x0a, 0xaa, 0x00]);
-        // cpu.interpret(vec![0xaa, 0x0iiiiiiii0]);
+        // cpu.interpret(vec![0xaa, 0x00]);
 
         assert_eq!(cpu.regs[RegIdx::X as usize], 10)
     }
