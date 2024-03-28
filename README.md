@@ -47,10 +47,10 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] NOP - No Operation
 - [x] ORA - Logical Inclusive OR
 - [x] PHA - Push Accumulator
-- [ ] PHP - Push Processor Status
-- [ ] PLA - Pull Accumulator
-- [ ] PLP - Pull Processor Status
-- [ ] ROL - Rotate Left
+- [x] PHP - Push Processor Status
+- [x] PLA - Pull Accumulator
+- [x] PLP - Pull Processor Status
+- [x] ROL - Rotate Left
 - [ ] ROR - Rotate Right
 - [ ] RTI - Return from Interrupt
 - [ ] RTS - Return from Subroutine

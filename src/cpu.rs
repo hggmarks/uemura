@@ -294,6 +294,18 @@ impl CPU {
                 // PHP
                 0x08 => self.stack_push(self.status.bits()),
 
+                // PLA
+                0x68 => self.pla(),
+
+                // PLP
+                0x28 => self.plp(),
+
+                // ROL (ACCUMULATOR)
+                0x2a => self.rol_accumulator(),
+
+                // ROL
+                0x26 | 0x36 | 0x2e | 0x3e => self.rol(&opcode.addr_mode),
+
                 // STA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.addr_mode);
@@ -570,11 +582,13 @@ impl CPU {
     fn lsr(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
 
-        let data = self.mem_read(addr);
+        let mut data = self.mem_read(addr);
 
         self.status.set(CpuFlags::CARRY, data & 0b1 == 1);
 
-        self.mem_write(addr, data >> 1);
+        data = data >> 1;
+        self.mem_write(addr, data);
+        self.update_zero_and_negative_flags(data);
     }
 
     fn ora(&mut self, mode: &AddressingMode) {
@@ -583,6 +597,49 @@ impl CPU {
         let data = self.mem_read(addr);
 
         self.set_reg_a_and_update_flags(self.regs[RegIdx::A as usize] | data);
+    }
+
+    fn pla(&mut self) {
+        let val = self.stack_pop();
+        self.set_reg_a_and_update_flags(val);
+    }
+
+    fn plp(&mut self) {
+        let val = self.stack_pop();
+        self.status = CpuFlags::from_bits_truncate(val);
+    }
+
+    fn rol_accumulator(&mut self) {
+        let reg_a = self.regs[RegIdx::A as usize];
+
+        let old_c_flag = self.status.contains(CpuFlags::CARRY) as u8;
+
+        if reg_a >> 7 == 1 {
+            self.status.insert(CpuFlags::CARRY);
+        } else {
+            self.status.remove(CpuFlags::CARRY);
+        }
+
+        self.set_reg_a_and_update_flags((reg_a << 1) | old_c_flag);
+    }
+
+    fn rol(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+
+        let mut data = self.mem_read(addr);
+
+        let old_c_flag = self.status.contains(CpuFlags::CARRY) as u8;
+
+        if data >> 7 == 1 {
+            self.status.insert(CpuFlags::CARRY);
+        } else {
+            self.status.remove(CpuFlags::CARRY);
+        }
+
+        data = (data << 1) | old_c_flag;
+
+        self.mem_write(addr, data);
+        self.update_zero_and_negative_flags(data);
     }
 
     fn sta(&mut self, mode: &AddressingMode) {
@@ -820,6 +877,41 @@ mod test {
         assert_eq!(cpu.regs[RegIdx::SP as usize], 0xfc);
         assert_eq!(0b0000_0010, cpu.mem_read(0x01fd));
         assert_eq!(cpu.mem_read(0x01fd), 0b0000_0010);
+    }
+
+    #[test]
+    fn test_0x68_pla() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa9, 0x80, // LDA #$0x80
+            0x48, // PHA
+            0xa9, 0x00, // LDA #$0x00
+            0x68, // PLA
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x80);
+
+        assert!(cpu.status.contains(CpuFlags::NEGATIVE));
+        assert!(!cpu.status.contains(CpuFlags::ZERO));
+    }
+
+    #[test]
+    fn test_0x2a_rol_accumulator() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0x18, // CLC
+            0xa9, 0x80, // LDA #$80
+            0x2a, // ROL A
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x00);
+        assert!(cpu.status.contains(CpuFlags::CARRY));
+        assert!(cpu.status.contains(CpuFlags::ZERO));
+        assert!(!cpu.status.contains(CpuFlags::NEGATIVE));
     }
 
     #[test]
