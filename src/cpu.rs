@@ -1,5 +1,5 @@
 use crate::opcodes;
-use bitflags::bitflags;
+use bitflags::{bitflags, Flags};
 use std::collections::HashMap;
 
 bitflags! {
@@ -306,13 +306,78 @@ impl CPU {
                 // ROL
                 0x26 | 0x36 | 0x2e | 0x3e => self.rol(&opcode.addr_mode),
 
+                // ROR (ACCUMULATOR)
+                0x6a => self.ror_accumulator(),
+
+                // ROR
+                0x66 | 0x76 | 0x6e | 0x7e => self.ror(&opcode.addr_mode),
+
+                // RTI
+                0x40 => {
+                    self.status = CpuFlags::from_bits_truncate(self.stack_pop());
+                    self.status.remove(CpuFlags::BREAK);
+                    self.status.insert(CpuFlags::BREAK2);
+                    self.pc = self.stack_pop_u16();
+                }
+
+                // RTS
+                0x60 => self.pc = self.stack_pop_u16() + 1,
+
+                // SBC
+                0xe9 | 0xe5 | 0xf5 | 0xed | 0xfd | 0xf9 | 0xe1 | 0xf1 => {
+                    self.sbc(&opcode.addr_mode);
+                }
+
+                // SEC
+                0x38 => self.status.insert(CpuFlags::CARRY),
+
+                // SED
+                0xf8 => self.status.insert(CpuFlags::DECIMAL_MODE),
+
+                // SEI
+                0x78 => self.status.insert(CpuFlags::INTERRUPT_DISABLE),
+
                 // STA
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => {
                     self.sta(&opcode.addr_mode);
                 }
+                // STX
+                0x86 | 0x96 | 0x8e => self.stx(&opcode.addr_mode),
+
+                // STY
+                0x84 | 0x94 | 0x8c => self.sty(&opcode.addr_mode),
 
                 // TAX
                 0xaa => self.tax(),
+
+                // TAY
+                0xa8 => {
+                    self.regs[RegIdx::Y as usize] = self.regs[RegIdx::A as usize];
+                    self.update_zero_and_negative_flags(self.regs[RegIdx::Y as usize]);
+                }
+
+                /* TSX */
+                0xba => {
+                    self.regs[RegIdx::X as usize] = self.regs[RegIdx::SP as usize];
+                    self.update_zero_and_negative_flags(self.regs[RegIdx::X as usize]);
+                }
+
+                /* TXA */
+                0x8a => {
+                    self.regs[RegIdx::A as usize] = self.regs[RegIdx::X as usize];
+                    self.update_zero_and_negative_flags(self.regs[RegIdx::A as usize]);
+                }
+
+                /* TXS */
+                0x9a => {
+                    self.regs[RegIdx::SP as usize] = self.regs[RegIdx::X as usize];
+                }
+
+                /* TYA */
+                0x98 => {
+                    self.regs[RegIdx::A as usize] = self.regs[RegIdx::Y as usize];
+                    self.update_zero_and_negative_flags(self.regs[RegIdx::A as usize]);
+                }
 
                 //BRK
                 0x00 => {
@@ -642,9 +707,59 @@ impl CPU {
         self.update_zero_and_negative_flags(data);
     }
 
+    fn ror_accumulator(&mut self) {
+        let reg_a = self.regs[RegIdx::A as usize];
+
+        let old_c_flag = self.status.contains(CpuFlags::CARRY) as u8;
+
+        if reg_a & 1 == 1 {
+            self.status.insert(CpuFlags::CARRY);
+        } else {
+            self.status.remove(CpuFlags::CARRY);
+        }
+
+        self.set_reg_a_and_update_flags((reg_a >> 1) | (old_c_flag << 7));
+    }
+
+    fn ror(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+
+        let mut data = self.mem_read(addr);
+
+        let old_c_flag = self.status.contains(CpuFlags::CARRY) as u8;
+
+        if data & 1 == 1 {
+            self.status.insert(CpuFlags::CARRY);
+        } else {
+            self.status.remove(CpuFlags::CARRY);
+        }
+
+        data = (data >> 1) | (old_c_flag << 7);
+
+        self.mem_write(addr, data);
+        self.update_zero_and_negative_flags(data);
+    }
+
+    fn sbc(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let data = self.mem_read(addr);
+
+        self.add_to_reg_a(((data as i8).wrapping_neg().wrapping_sub(1)) as u8);
+    }
+
     fn sta(&mut self, mode: &AddressingMode) {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.regs[RegIdx::A as usize]);
+    }
+
+    fn stx(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        self.mem_write(addr, self.regs[RegIdx::X as usize]);
+    }
+
+    fn sty(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        self.mem_write(addr, self.regs[RegIdx::Y as usize]);
     }
 
     fn tax(&mut self) {
@@ -729,7 +844,14 @@ mod test {
         let mut cpu = CPU::new();
 
         cpu.load_and_run(vec![
-            0xa9, 0x03, 0x4c, 0x08, 0x80, 0xaa, 0xe8, 0xe8, 0xaa, 0xca, 0x8d, 0x00, 0x02, 0x00,
+            0xa9, 0x03, // LDA #$0x03
+            0x4c, 0x08, 0x80, // JMP $8008
+            0xaa, // TAX
+            0xe8, // INX
+            0xe8, // INX
+            0xaa, // TAX
+            0xca, // DEX
+            0x8d, 0x00, 0x02, 0x00,
         ]);
 
         assert_eq!(cpu.regs[RegIdx::X as usize], 2);
@@ -915,6 +1037,98 @@ mod test {
     }
 
     #[test]
+    fn test_0x6a_ror_accumulator() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0x38, // SEC
+            0xa9, 0x01, // LDA #$01
+            0x6a, // ROR A
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x80);
+        assert!(cpu.status.contains(CpuFlags::CARRY));
+        assert!(!cpu.status.contains(CpuFlags::ZERO));
+        assert!(cpu.status.contains(CpuFlags::NEGATIVE));
+    }
+
+    #[test]
+    fn test_0x60_rts() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa9, 0x00, // LDA #$00
+            0x20, 0x06, 0x80, // JSR $8006
+            0x00, // BRK
+            // Subroutine:
+            0xa9, 0x42, // LDA #$42
+            0x60, // RTS
+        ]);
+
+        assert!(!cpu.status.contains(CpuFlags::NEGATIVE));
+        assert!(cpu.status.contains(CpuFlags::BREAK));
+    }
+
+    #[test]
+    fn test_0xe9_sbc_basic_subtraction() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa9, 0x05, // LDA #$05 - Load 0x05 into the accumulator
+            0x38, // SEC - Set carry flag to simulate no borrow
+            0xe9, 0x02, // SBC #$02 - Subtract 0x02 from the accumulator
+            0x00, // BRK - End of program
+        ]);
+
+        // Check the subtraction result
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x03);
+        // Check if the carry flag is set (no borrow was needed)
+        assert!(cpu.status.contains(CpuFlags::CARRY));
+        // Check if the zero flag is clear
+        assert!(!cpu.status.contains(CpuFlags::ZERO));
+        // Check if the negative flag is clear
+        assert!(!cpu.status.contains(CpuFlags::NEGATIVE));
+    }
+
+    #[test]
+    fn test_0x38_sec() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0x38, // SEC
+            0x00, // BRK
+        ]);
+
+        // Check if the Carry flag is set
+        assert!(cpu.status.contains(CpuFlags::CARRY));
+    }
+
+    #[test]
+    fn test_0xf8_sed() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xf8, // SED
+            0x00, // BRK
+        ]);
+
+        assert!(cpu.status.contains(CpuFlags::DECIMAL_MODE));
+    }
+
+    #[test]
+    fn test_0x78_sei() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0x78, // SEI
+            0x00, // BRK
+        ]);
+
+        assert!(cpu.status.contains(CpuFlags::INTERRUPT_DISABLE));
+    }
+
+    #[test]
     fn test_0xaa_tax_transfer_a_to_x() {
         let mut cpu = CPU::new();
         // cpu.regs[RegIdx::A as usize] = 10;
@@ -922,6 +1136,71 @@ mod test {
         // cpu.interpret(vec![0xaa, 0x00]);
 
         assert_eq!(cpu.regs[RegIdx::X as usize], 10)
+    }
+
+    #[test]
+    fn test_0xa8_tay() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa9, 0x42, // LDA #$42
+            0xa8, // TAY
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::Y as usize], 0x42);
+    }
+
+    #[test]
+    fn test_0xba_tsx() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xba, // TSX
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::X as usize], STACK_RESET);
+    }
+
+    #[test]
+    fn test_0x8a_txa() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa2, 0x33, // LDX #$33
+            0x8a, // TXA
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x33);
+    }
+
+    #[test]
+    fn test_0x9a_txs() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa2, 0xe2, // LDX #$E2
+            0x9a, // TXS
+            0xba, // TSX
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::X as usize], 0xe2);
+    }
+
+    #[test]
+    fn test_0x98_tya() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa0, 0x55, // LDY #$55
+            0x98, // TYA
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x55); // Check if Accumulator holds the transferred value
     }
 
     #[test]

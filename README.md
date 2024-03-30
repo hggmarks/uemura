@@ -51,20 +51,20 @@ As part of our development process, we are methodically implementing the 6502 in
 - [x] PLA - Pull Accumulator
 - [x] PLP - Pull Processor Status
 - [x] ROL - Rotate Left
-- [ ] ROR - Rotate Right
-- [ ] RTI - Return from Interrupt
-- [ ] RTS - Return from Subroutine
-- [ ] SBC - Subtract with Carry
-- [ ] SEC - Set Carry Flag
-- [ ] SED - Set Decimal Flag
-- [ ] SEI - Set Interrupt Disable
+- [x] ROR - Rotate Right
+- [x] RTI - Return from Interrupt
+- [x] RTS - Return from Subroutine
+- [x] SBC - Subtract with Carry
+- [x] SEC - Set Carry Flag
+- [x] SED - Set Decimal Flag
+- [x] SEI - Set Interrupt Disable
 - [x] STA - Store Accumulator
-- [ ] STX - Store X Register
-- [ ] STY - Store Y Register
+- [x] STX - Store X Register
+- [x] STY - Store Y Register
 - [x] TAX - Transfer Accumulator to X
-- [ ] TAY - Transfer Accumulator to Y
-- [ ] TSX - Transfer Stack Pointer to X
-- [ ] TXA - Transfer X to Accumulator
-- [ ] TXS - Transfer X to Stack Pointer
-- [ ] TYA - Transfer Y to Accumulator
+- [x] TAY - Transfer Accumulator to Y
+- [x] TSX - Transfer Stack Pointer to X
+- [x] TXA - Transfer X to Accumulator
+- [x] TXS - Transfer X to Stack Pointer
+- [x] TYA - Transfer Y to Accumulator
 
