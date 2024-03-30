@@ -914,7 +914,7 @@ mod test {
         cpu.load_and_run(vec![
             0xa9, 0x69, // LDA #0x69
             0x4a, // LSR
-            0x00,
+            0x00, // BRK
         ]);
 
         assert_eq!(cpu.regs[RegIdx::A as usize], 0x69 >> 1);
@@ -931,8 +931,8 @@ mod test {
             0xa9, 0x01, // LDA #$01
             0xa2, 0x02, // LDX #$02
             0xa0, 0x00, // LDY #$03
-            0xea, // NOP - No operation
-            0x00, // BRK - End of program
+            0xea, // NOP
+            0x00, // BRK
         ]);
 
         assert_eq!(cpu.regs[RegIdx::A as usize], 0x01);
@@ -1075,20 +1075,33 @@ mod test {
         let mut cpu = CPU::new();
 
         cpu.load_and_run(vec![
-            0xa9, 0x05, // LDA #$05 - Load 0x05 into the accumulator
-            0x38, // SEC - Set carry flag to simulate no borrow
-            0xe9, 0x02, // SBC #$02 - Subtract 0x02 from the accumulator
+            0xa9, 0x05, // LDA #$05
+            0x38, // SEC
+            0xe9, 0x02, // SBC #$02
+            0x00, // BRK
+        ]);
+
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0x03);
+        assert!(cpu.status.contains(CpuFlags::CARRY));
+        assert!(!cpu.status.contains(CpuFlags::ZERO));
+        assert!(!cpu.status.contains(CpuFlags::NEGATIVE));
+    }
+
+    #[test]
+    fn test_0xe9_sbc_with_borrow_negative_result() {
+        let mut cpu = CPU::new();
+
+        cpu.load_and_run(vec![
+            0xa9, 0x00, // LDA #$00 - Load 0x00 into the accumulator
+            0x18, // CLC - Clear carry flag to simulate an initial borrow
+            0xe9, 0x01, // SBC #$01 - Subtract 0x01 from the accumulator
             0x00, // BRK - End of program
         ]);
 
-        // Check the subtraction result
-        assert_eq!(cpu.regs[RegIdx::A as usize], 0x03);
-        // Check if the carry flag is set (no borrow was needed)
-        assert!(cpu.status.contains(CpuFlags::CARRY));
-        // Check if the zero flag is clear
+        assert_eq!(cpu.regs[RegIdx::A as usize], 0xfe);
+        assert!(!cpu.status.contains(CpuFlags::CARRY));
         assert!(!cpu.status.contains(CpuFlags::ZERO));
-        // Check if the negative flag is clear
-        assert!(!cpu.status.contains(CpuFlags::NEGATIVE));
+        assert!(cpu.status.contains(CpuFlags::NEGATIVE));
     }
 
     #[test]
