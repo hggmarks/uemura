@@ -70,6 +70,7 @@ lazy_static! {
         OpCode::new(0x1e, "ASL", 3, 7, AddressingMode::AbsoluteX),
         OpCode::new(0x90, "BCC", 2, 2/* +1 if branch succeeds +2 if new page */, AddressingMode::NoneAddressing),
         OpCode::new(0xb0, "BCS", 2, 2/* +1 if branch succeeds +2 if new page */, AddressingMode::NoneAddressing),
+        OpCode::new(0xf0, "BEQ", 2, 2/* +1 if branch succeeds +2 if new page */, AddressingMode::NoneAddressing),
         OpCode::new(0x24, "BIT", 2, 3, AddressingMode::ZeroPage),
         OpCode::new(0x2c, "BIT", 2, 4, AddressingMode::Absolute),
         OpCode::new(0x30, "BMI", 2, 2/* +1 if branch succeeds +2 if new page */, AddressingMode::NoneAddressing),
