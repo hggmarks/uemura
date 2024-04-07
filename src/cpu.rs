@@ -1,5 +1,5 @@
 use crate::opcodes;
-use bitflags::{bitflags, Flags};
+use bitflags::bitflags;
 use std::collections::HashMap;
 
 bitflags! {
@@ -15,7 +15,7 @@ bitflags! {
     ///  | +--------------- Overflow Flag
     ///  +----------------- Negative Flag
     ///
-
+    #[derive(Clone, Copy)]
     pub struct CpuFlags: u8 {
         const CARRY             = 0b00000001;
         const ZERO              = 0b00000010;
@@ -54,18 +54,14 @@ pub enum AddressingMode {
     NoneAddressing,
 }
 
-// pub static ref CPU_OPCODES: Vec<OpCode> =
-
 pub struct CPU {
     pub regs: [u8; 4],
-    // pub reg_a: u8,
     pub status: CpuFlags,
-    // pub reg_x: u8,
     pub pc: u16,
     mem: [u8; 0xffff],
 }
 
-trait Mem {
+pub trait Mem {
     fn mem_read(&self, addr: u16) -> u8;
 
     fn mem_write(&mut self, addr: u16, data: u8);
@@ -98,7 +94,7 @@ impl CPU {
     pub fn new() -> Self {
         CPU {
             regs: [0, 0, 0, STACK_RESET],
-            status: CpuFlags::from_bits_truncate(0b00000000),
+            status: CpuFlags::from_bits_truncate(0b100100),
             // reg_a: 0,
             // reg_status: 0, // NVB?DIZC
             // reg_x: 0,
@@ -118,18 +114,27 @@ impl CPU {
         self.mem_write_u16(0xfffc, 0x8000)
     }
 
+    pub fn load_alternative(&mut self, program: Vec<u8>) {
+        self.mem[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
+        self.mem_write_u16(0xfffc, 0x0600);
+    }
+
     pub fn reset(&mut self) {
         // Reset Interrupt: all register to zero and
         // set PC to 0xfffc
         self.regs = [0, 0, 0, STACK_RESET];
-
-        self.pc = self.mem_read_u16(0xfffc)
+        self.status = CpuFlags::from_bits_truncate(0b100100);
+        self.pc = self.mem_read_u16(0xfffc);
     }
 
-    pub fn run(&mut self) {
+    pub fn run_with_callback<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&mut CPU),
+    {
         let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
 
         loop {
+            callback(self);
             let code = self.mem_read(self.pc);
             self.pc += 1; // the word is just 1byte so the increment is just by 1
             let pc_state = self.pc;
@@ -179,7 +184,7 @@ impl CPU {
                 // BVC
                 0x50 => self.branch(!self.status.contains(CpuFlags::OVERFLOW)),
 
-                // BVC
+                // BVS
                 0x70 => self.branch(self.status.contains(CpuFlags::OVERFLOW)),
 
                 // CLC
@@ -292,7 +297,12 @@ impl CPU {
                 0x48 => self.stack_push(self.regs[RegIdx::A as usize]),
 
                 // PHP
-                0x08 => self.stack_push(self.status.bits()),
+                0x08 => {
+                    let mut flags = self.status.clone();
+                    flags.insert(CpuFlags::BREAK);
+                    flags.insert(CpuFlags::BREAK2);
+                    self.stack_push(flags.bits());
+                }
 
                 // PLA
                 0x68 => self.pla(),
@@ -393,6 +403,10 @@ impl CPU {
         }
     }
 
+    pub fn run(&mut self) {
+        self.run_with_callback(|_| {});
+    }
+
     fn get_operand_address(&mut self, mode: &AddressingMode) -> u16 {
         let idx_x = RegIdx::X as usize;
         let idx_y = RegIdx::Y as usize;
@@ -421,7 +435,7 @@ impl CPU {
                 addr
             }
             AddressingMode::IndirectX => {
-                let base = self.mem_read_u16(self.pc);
+                let base = self.mem_read(self.pc);
                 let ptr: u8 = (base as u8).wrapping_add(self.regs[idx_x]);
                 let lo = self.mem_read(ptr as u16);
                 let hi = self.mem_read(ptr.wrapping_add(1) as u16);
@@ -568,11 +582,11 @@ impl CPU {
 
         let data = self.mem_read(addr);
 
-        let cmp_result = self.regs[RegIdx::A as usize] - data;
+        //let cmp_result = self.regs[RegIdx::A as usize].wrapping_sub(data);
 
-        self.status.set(CpuFlags::CARRY, cmp_result <= value);
+        self.status.set(CpuFlags::CARRY, data <= value);
 
-        self.update_zero_and_negative_flags(cmp_result);
+        self.update_zero_and_negative_flags(value.wrapping_sub(data));
     }
 
     fn dec(&mut self, mode: &AddressingMode) {
@@ -620,14 +634,14 @@ impl CPU {
     }
 
     fn lda(&mut self, mode: &AddressingMode) {
-        let addr = self.get_operand_address(mode);
+        let addr = self.get_operand_address(&mode);
 
-        self.regs[RegIdx::A as usize] = self.mem_read(addr);
-        self.update_zero_and_negative_flags(self.regs[RegIdx::A as usize]);
+        let val = self.mem_read(addr);
+        self.set_reg_a_and_update_flags(val);
     }
 
     fn load_reg(&mut self, mode: &AddressingMode, reg: RegIdx) {
-        let addr = self.get_operand_address(mode);
+        let addr = self.get_operand_address(&mode);
 
         let data = self.mem_read(addr);
 
@@ -638,10 +652,10 @@ impl CPU {
     fn lsr_accumulator(&mut self) {
         let idx = RegIdx::A as usize;
 
-        self.status.set(CpuFlags::CARRY, self.regs[idx] & 0b1 == 1);
+        self.status
+            .set(CpuFlags::CARRY, (self.regs[idx] & 0b1) == 1);
 
-        self.regs[idx] = self.regs[idx] >> 1;
-        self.update_zero_and_negative_flags(self.regs[idx]);
+        self.set_reg_a_and_update_flags(self.regs[idx] >> 1);
     }
 
     fn lsr(&mut self, mode: &AddressingMode) {
@@ -649,7 +663,7 @@ impl CPU {
 
         let mut data = self.mem_read(addr);
 
-        self.status.set(CpuFlags::CARRY, data & 0b1 == 1);
+        self.status.set(CpuFlags::CARRY, (data & 0b1) == 1);
 
         data = data >> 1;
         self.mem_write(addr, data);
@@ -661,7 +675,7 @@ impl CPU {
 
         let data = self.mem_read(addr);
 
-        self.set_reg_a_and_update_flags(self.regs[RegIdx::A as usize] | data);
+        self.set_reg_a_and_update_flags(data | self.regs[RegIdx::A as usize]);
     }
 
     fn pla(&mut self) {
@@ -672,12 +686,14 @@ impl CPU {
     fn plp(&mut self) {
         let val = self.stack_pop();
         self.status = CpuFlags::from_bits_truncate(val);
+        self.status.remove(CpuFlags::BREAK);
+        self.status.insert(CpuFlags::BREAK2);
     }
 
     fn rol_accumulator(&mut self) {
-        let reg_a = self.regs[RegIdx::A as usize];
+        let mut reg_a = self.regs[RegIdx::A as usize];
 
-        let old_c_flag = self.status.contains(CpuFlags::CARRY) as u8;
+        let old_c_flag = self.status.contains(CpuFlags::CARRY);
 
         if reg_a >> 7 == 1 {
             self.status.insert(CpuFlags::CARRY);
@@ -685,7 +701,13 @@ impl CPU {
             self.status.remove(CpuFlags::CARRY);
         }
 
-        self.set_reg_a_and_update_flags((reg_a << 1) | old_c_flag);
+        reg_a = reg_a << 1;
+
+        if old_c_flag {
+            reg_a = reg_a | 1;
+        }
+
+        self.set_reg_a_and_update_flags(reg_a);
     }
 
     fn rol(&mut self, mode: &AddressingMode) {
@@ -693,7 +715,7 @@ impl CPU {
 
         let mut data = self.mem_read(addr);
 
-        let old_c_flag = self.status.contains(CpuFlags::CARRY) as u8;
+        let old_c_flag = self.status.contains(CpuFlags::CARRY);
 
         if data >> 7 == 1 {
             self.status.insert(CpuFlags::CARRY);
@@ -701,16 +723,19 @@ impl CPU {
             self.status.remove(CpuFlags::CARRY);
         }
 
-        data = (data << 1) | old_c_flag;
+        data = data << 1;
+
+        if old_c_flag {
+            data = data | 1;
+        }
 
         self.mem_write(addr, data);
         self.update_zero_and_negative_flags(data);
     }
 
     fn ror_accumulator(&mut self) {
-        let reg_a = self.regs[RegIdx::A as usize];
-
-        let old_c_flag = self.status.contains(CpuFlags::CARRY) as u8;
+        let mut reg_a = self.regs[RegIdx::A as usize];
+        let old_c_flag = self.status.contains(CpuFlags::CARRY);
 
         if reg_a & 1 == 1 {
             self.status.insert(CpuFlags::CARRY);
@@ -718,7 +743,11 @@ impl CPU {
             self.status.remove(CpuFlags::CARRY);
         }
 
-        self.set_reg_a_and_update_flags((reg_a >> 1) | (old_c_flag << 7));
+        reg_a = reg_a >> 1;
+        if old_c_flag {
+            reg_a = reg_a | 0b1000_0000;
+        }
+        self.set_reg_a_and_update_flags(reg_a);
     }
 
     fn ror(&mut self, mode: &AddressingMode) {
@@ -726,15 +755,18 @@ impl CPU {
 
         let mut data = self.mem_read(addr);
 
-        let old_c_flag = self.status.contains(CpuFlags::CARRY) as u8;
+        let old_c_flag = self.status.contains(CpuFlags::CARRY);
 
         if data & 1 == 1 {
             self.status.insert(CpuFlags::CARRY);
         } else {
             self.status.remove(CpuFlags::CARRY);
         }
+        data = data >> 1;
 
-        data = (data >> 1) | (old_c_flag << 7);
+        if old_c_flag {
+            data = data | 0b1000_0000;
+        }
 
         self.mem_write(addr, data);
         self.update_zero_and_negative_flags(data);
