@@ -830,14 +830,14 @@ mod test {
         cpu.load_and_run(vec![0xa9, 0xa5, 0x49, 0x04, 0x00]);
 
         assert_eq!(cpu.regs[RegIdx::A as usize], 0xa1);
-        assert!(cpu.status.bits() == 0b1001_0000);
+        assert!(cpu.status.bits() == 0b1011_0100);
 
         let mut cpu2 = CPU::new();
 
         cpu2.load_and_run(vec![0xa9, 0xa5, 0x49, 0xa5, 0x00]);
 
         assert_eq!(cpu2.regs[RegIdx::A as usize], 0x00);
-        assert!(cpu2.status.bits() == 0b0001_0010);
+        assert_eq!(cpu2.status.bits(), 0b0011_0110);
     }
 
     #[test]
@@ -849,7 +849,7 @@ mod test {
         ]);
 
         assert_eq!(cpu.regs[RegIdx::A as usize], 0x00);
-        assert!(cpu.status.bits() == 0b0001_0010);
+        assert_eq!(cpu.status.bits(), 0b0011_0110);
 
         let mut cpu2 = CPU::new();
 
@@ -858,7 +858,7 @@ mod test {
         ]);
 
         assert_eq!(cpu2.regs[RegIdx::A as usize], 0x80);
-        assert!(cpu2.status.bits() == 0b1001_0000);
+        assert_eq!(cpu2.status.bits(), 0b1011_0100);
     }
 
     #[test]
@@ -888,7 +888,7 @@ mod test {
 
         assert_eq!(cpu.regs[RegIdx::X as usize], 2);
         assert_eq!(cpu.regs[RegIdx::A as usize], 3);
-        assert!(cpu.status.bits() == 0b0001_0000);
+        assert_eq!(cpu.status.bits(), 0b0011_0100);
     }
 
     #[test]
@@ -898,7 +898,7 @@ mod test {
         cpu.load_and_run(vec![0x20, 0x06, 0x80, 0xa9, 0x10, 0xaa, 0xe8, 0xe8, 0x00]);
 
         assert_eq!(cpu.regs[RegIdx::X as usize], 2);
-        assert!(cpu.status.bits() == 0b0001_0000);
+        assert_eq!(cpu.status.bits(), 0b0011_0100);
     }
 
     #[test]
@@ -970,7 +970,7 @@ mod test {
         assert_eq!(cpu.regs[RegIdx::A as usize], 0x01);
         assert_eq!(cpu.regs[RegIdx::X as usize], 0x02);
         assert_eq!(cpu.regs[RegIdx::Y as usize], 0x00);
-        assert_eq!(cpu.status.bits(), 0b0001_0010);
+        assert_eq!(cpu.status.bits(), 0b0011_0110);
     }
 
     #[test]
@@ -996,7 +996,7 @@ mod test {
         ]);
 
         assert_eq!(cpu.regs[RegIdx::A as usize], 0x00);
-        assert!(cpu.status.bits() == 0b0001_0010);
+        assert!(cpu.status.bits() == 0b0011_0110);
     }
 
     #[test]
@@ -1009,7 +1009,7 @@ mod test {
         ]);
 
         assert_eq!(cpu.regs[RegIdx::A as usize], 0x80);
-        assert!(cpu.status.bits() == 0b1001_0000);
+        assert_eq!(cpu.status.bits(), 0b1011_0100);
     }
 
     #[test]
@@ -1029,8 +1029,7 @@ mod test {
         cpu.load_and_run(vec![0xa9, 0x00, 0x08, 0x00]);
 
         assert_eq!(cpu.regs[RegIdx::SP as usize], 0xfc);
-        assert_eq!(0b0000_0010, cpu.mem_read(0x01fd));
-        assert_eq!(cpu.mem_read(0x01fd), 0b0000_0010);
+        assert_eq!(cpu.mem_read(0x01fd), 0b0011_0110);
     }
 
     #[test]
