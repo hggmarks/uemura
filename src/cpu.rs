@@ -1,3 +1,4 @@
+use crate::bus::Bus;
 use crate::opcodes;
 use bitflags::bitflags;
 use std::collections::HashMap;
@@ -58,7 +59,8 @@ pub struct CPU {
     pub regs: [u8; 4],
     pub status: CpuFlags,
     pub pc: u16,
-    mem: [u8; 0xffff],
+    //mem: [u8; 0xffff],
+    pub bus: Bus,
 }
 
 pub trait Mem {
@@ -82,42 +84,50 @@ pub trait Mem {
 
 impl Mem for CPU {
     fn mem_read(&self, addr: u16) -> u8 {
-        self.mem[addr as usize]
+        self.bus.mem_read(addr)
     }
 
     fn mem_write(&mut self, addr: u16, data: u8) {
-        self.mem[addr as usize] = data;
+        self.bus.mem_write(addr, data);
+    }
+
+    fn mem_read_u16(&self, pos: u16) -> u16 {
+        self.bus.mem_read_u16(pos)
+    }
+
+    fn mem_write_u16(&mut self, pos: u16, data: u16) {
+        self.bus.mem_write_u16(pos, data);
     }
 }
 
 impl CPU {
-    pub fn new() -> Self {
+    pub fn new(bus: Bus) -> Self {
         CPU {
             regs: [0, 0, 0, STACK_RESET],
             status: CpuFlags::from_bits_truncate(0b100100),
-            // reg_a: 0,
-            // reg_status: 0, // NVB?DIZC
-            // reg_x: 0,
             pc: 0,
-            mem: [0; 0xffff],
+            bus,
         }
     }
 
     pub fn load_and_run(&mut self, program: Vec<u8>) {
         self.load(program);
         self.reset();
+        self.pc = 0x0600;
         self.run();
     }
 
     pub fn load(&mut self, program: Vec<u8>) {
-        self.mem[0x8000..(0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xfffc, 0x8000)
+        for i in 0..(program.len() as u16) {
+            self.mem_write(0x0600 + i, program[i as usize]);
+        }
+        //self.mem_write_u16(0xfffc, 0x8600);
     }
 
-    pub fn load_alternative(&mut self, program: Vec<u8>) {
-        self.mem[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xfffc, 0x0600);
-    }
+    // pub fn load_alternative(&mut self, program: Vec<u8>) {
+    //     self.mem[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
+    //     self.mem_write_u16(0xfffc, 0x0600);
+    // }
 
     pub fn reset(&mut self) {
         // Reset Interrupt: all register to zero and
@@ -405,6 +415,54 @@ impl CPU {
 
     pub fn run(&mut self) {
         self.run_with_callback(|_| {});
+    }
+
+    pub fn get_absolute_address(&self, mode: &AddressingMode, addr: u16) -> u16 {
+        match mode {
+            AddressingMode::ZeroPage => self.mem_read(addr) as u16,
+            AddressingMode::Absolute => self.mem_read_u16(addr),
+            AddressingMode::ZeroPageX => {
+                let pos = self.mem_read(addr);
+                let addr = pos.wrapping_add(self.regs[RegIdx::X as usize]) as u16;
+                addr
+            }
+            AddressingMode::ZeroPageY => {
+                let pos = self.mem_read(addr);
+                let addr = pos.wrapping_add(self.regs[RegIdx::Y as usize]) as u16;
+                addr
+            }
+            AddressingMode::AbsoluteX => {
+                let pos = self.mem_read_u16(addr);
+                let addr = pos.wrapping_add(self.regs[RegIdx::X as usize] as u16);
+                addr
+            }
+            AddressingMode::AbsoluteY => {
+                let pos = self.mem_read_u16(addr);
+                let addr = pos.wrapping_add(self.regs[RegIdx::Y as usize] as u16);
+                addr
+            }
+            AddressingMode::IndirectX => {
+                let base = self.mem_read(addr);
+
+                let ptr: u8 = (base as u8).wrapping_add(self.regs[RegIdx::X as usize]);
+                let lo = self.mem_read(ptr as u16);
+                let hi = self.mem_read(ptr.wrapping_add(1) as u16);
+                (hi as u16) << 8 | (lo as u16)
+            }
+            AddressingMode::IndirectY => {
+                let base = self.mem_read(addr);
+
+                let lo = self.mem_read(base as u16);
+                let hi = self.mem_read((base as u8).wrapping_add(1) as u16);
+                let deref_base = (hi as u16) << 8 | (lo as u16);
+                let deref = deref_base.wrapping_add(self.regs[RegIdx::Y as usize] as u16);
+                deref
+            }
+
+            _ => {
+                panic!("mode {:?} is not supported", mode);
+            }
+        }
     }
 
     fn get_operand_address(&mut self, mode: &AddressingMode) -> u16 {
@@ -821,20 +879,26 @@ impl CPU {
 
 #[cfg(test)]
 mod test {
+    use crate::cartridge::Rom;
+
     use super::*;
 
     #[test]
     fn test_0x49_eor_zero_and_negative() {
-        let mut cpu = CPU::new();
-
-        cpu.load_and_run(vec![0xa9, 0xa5, 0x49, 0x04, 0x00]);
+        let rom = Rom::new(&vec![0xa9, 0xa5, 0x49, 0x04, 0x00]);
+        let bus = Bus::new(rom.unwrap());
+        let mut cpu = CPU::new(bus);
+        cpu.reset();
+        cpu.run();
 
         assert_eq!(cpu.regs[RegIdx::A as usize], 0xa1);
         assert!(cpu.status.bits() == 0b1011_0100);
 
-        let mut cpu2 = CPU::new();
-
-        cpu2.load_and_run(vec![0xa9, 0xa5, 0x49, 0xa5, 0x00]);
+        let rom2 = Rom::new(&vec![0xa9, 0xa5, 0x49, 0xa5, 0x00]);
+        let bus2 = Bus::new(rom2.unwrap());
+        let mut cpu2 = CPU::new(bus2);
+        cpu.reset();
+        cpu.run();
 
         assert_eq!(cpu2.regs[RegIdx::A as usize], 0x00);
         assert_eq!(cpu2.status.bits(), 0b0011_0110);
