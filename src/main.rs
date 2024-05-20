@@ -109,31 +109,31 @@ fn main() {
         .unwrap();
 
     //load the game
-    let bytes: Vec<u8> = std::fs::read("nestest.nes").unwrap();
+    let bytes: Vec<u8> = std::fs::read("snake.nes").unwrap();
     let rom = Rom::new(&bytes).unwrap();
 
     let bus = Bus::new(rom);
     let mut cpu = CPU::new(bus);
     cpu.reset();
     cpu.pc = 0xC000;
-    //let mut screen_buffer = [0 as u8; 32 * 3 * 32];
-    //let mut rng = rand::thread_rng();
+    let mut screen_buffer = [0 as u8; 32 * 3 * 32];
+    let mut rng = rand::thread_rng();
 
     // run the game cycle
     cpu.run_with_callback(move |cpu| {
-        println!("{}", trace(cpu));
-        //handle_user_input(cpu, &mut event_pump);
+        //println!("{}", trace(cpu));
+        handle_user_input(cpu, &mut event_pump);
 
-        //cpu.mem_write(0xfe, rng.gen_range(1..16));
+        cpu.mem_write(0xfe, rng.gen_range(1..16));
 
-        //if read_screen_buffer(cpu, &mut screen_buffer) {
-        //    texture.update(None, &screen_buffer, 32 * 3).unwrap();
+        if read_screen_buffer(cpu, &mut screen_buffer) {
+            texture.update(None, &screen_buffer, 32 * 3).unwrap();
 
-        //    canvas.copy(&texture, None, None).unwrap();
+            canvas.copy(&texture, None, None).unwrap();
 
-        //    canvas.present();
-        //}
+            canvas.present();
+        }
 
-        //::std::thread::sleep(std::time::Duration::new(0, 70_000));
+        ::std::thread::sleep(std::time::Duration::new(0, 70_000));
     });
 }

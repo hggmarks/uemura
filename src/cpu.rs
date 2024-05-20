@@ -1,6 +1,6 @@
 use crate::bus::Bus;
 use crate::opcodes;
-use bitflags::bitflags;
+use bitflags::{bitflags, Flags};
 use std::collections::HashMap;
 
 bitflags! {
@@ -168,7 +168,9 @@ impl CPU {
                 0x0a => self.asl_accumulator(),
 
                 // ASL -> ADDRESSING
-                0x06 | 0x16 | 0x0e | 0x1e => self.asl(&opcode.addr_mode),
+                0x06 | 0x16 | 0x0e | 0x1e => {
+                    self.asl(&opcode.addr_mode);
+                }
 
                 // BCC
                 0x90 => self.branch(!self.status.contains(CpuFlags::CARRY)),
@@ -241,7 +243,9 @@ impl CPU {
                 }
 
                 // INC
-                0xe6 | 0xf6 | 0xee | 0xfe => self.inc(&opcode.addr_mode),
+                0xe6 | 0xf6 | 0xee | 0xfe => {
+                    self.inc(&opcode.addr_mode);
+                }
 
                 // INX
                 0xe8 => self.inx(),
@@ -264,7 +268,7 @@ impl CPU {
                         self.mem_read_u16(mem_addr)
                     };
 
-                    self.pc = indirect_value
+                    self.pc = indirect_value;
                 }
 
                 // JSR
@@ -293,7 +297,9 @@ impl CPU {
                 0x4a => self.lsr_accumulator(),
 
                 // LSR
-                0x46 | 0x56 | 0x4e | 0x5e => self.lsr(&opcode.addr_mode),
+                0x46 | 0x56 | 0x4e | 0x5e => {
+                    self.lsr(&opcode.addr_mode);
+                }
 
                 // NOP
                 0xea => {}
@@ -324,13 +330,17 @@ impl CPU {
                 0x2a => self.rol_accumulator(),
 
                 // ROL
-                0x26 | 0x36 | 0x2e | 0x3e => self.rol(&opcode.addr_mode),
+                0x26 | 0x36 | 0x2e | 0x3e => {
+                    self.rol(&opcode.addr_mode);
+                }
 
                 // ROR (ACCUMULATOR)
                 0x6a => self.ror_accumulator(),
 
                 // ROR
-                0x66 | 0x76 | 0x6e | 0x7e => self.ror(&opcode.addr_mode),
+                0x66 | 0x76 | 0x6e | 0x7e => {
+                    self.ror(&opcode.addr_mode);
+                }
 
                 // RTI
                 0x40 => {
@@ -404,8 +414,235 @@ impl CPU {
                     self.status.insert(CpuFlags::BREAK);
                     return; //Break
                 }
-                _ => todo!(),
-            }
+
+                // UNOFFICIAL
+
+                // ANC
+                0x0b | 0x2b => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let data = self.mem_read(addr);
+
+                    self.and_with_reg_a(data);
+
+                    self.status
+                        .set(CpuFlags::CARRY, self.status.contains(CpuFlags::NEGATIVE));
+                }
+
+                // SAX
+                0x87 | 0x97 | 0x83 | 0x8f => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let data = self.regs[RegIdx::A as usize] & self.regs[RegIdx::X as usize];
+
+                    self.mem_write(addr, data);
+                }
+
+                // ARR
+                0x6b => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let data = self.mem_read(addr);
+
+                    self.and_with_reg_a(data);
+                    self.ror_accumulator();
+
+                    let result = self.regs[RegIdx::A as usize];
+                    let bit_5 = (result >> 5) & 1;
+                    let bit_6 = (result >> 6) & 1;
+
+                    self.status.set(CpuFlags::CARRY, bit_6 == 1);
+                    self.status.set(CpuFlags::OVERFLOW, bit_5 ^ bit_6 == 1);
+                }
+
+                // ALR
+                0x4b => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let data = self.mem_read(addr);
+
+                    self.and_with_reg_a(data);
+                    self.lsr_accumulator();
+                }
+
+                // LXA
+                0xab => {
+                    self.lda(&opcode.addr_mode);
+                    self.tax();
+                }
+
+                // AHX AbsoluteY
+                0x9f => {
+                    let mem_addr =
+                        self.mem_read_u16(self.pc) + self.regs[RegIdx::Y as usize] as u16;
+
+                    let data = self.regs[RegIdx::A as usize]
+                        & self.regs[RegIdx::X as usize]
+                        & (mem_addr >> 8) as u8;
+
+                    self.mem_write(mem_addr, data);
+                }
+
+                // AHX IndirectY
+                0x93 => {
+                    let pos = self.mem_read(self.pc);
+                    let mem_addr =
+                        self.mem_read_u16(pos as u16) + self.regs[RegIdx::Y as usize] as u16;
+
+                    let data = self.regs[RegIdx::A as usize]
+                        & self.regs[RegIdx::X as usize]
+                        & (mem_addr >> 8) as u8;
+
+                    self.mem_write(mem_addr, data);
+                }
+
+                // AXS
+                0xcb => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let data = self.mem_read(addr);
+
+                    let x_and_a = self.regs[RegIdx::X as usize] & self.regs[RegIdx::A as usize];
+
+                    let result = x_and_a.wrapping_sub(data);
+
+                    self.status.set(CpuFlags::CARRY, data <= x_and_a);
+
+                    self.update_zero_and_negative_flags(result);
+
+                    self.regs[RegIdx::X as usize] = result;
+                }
+
+                // DCP
+                0xc7 | 0xd7 | 0xcf | 0xdf | 0xdb | 0xc3 | 0xd3 => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let mut data = self.mem_read(addr);
+                    data = data.wrapping_sub(1);
+                    self.mem_write(addr, data);
+
+                    self.status
+                        .set(CpuFlags::CARRY, data <= self.regs[RegIdx::A as usize]);
+
+                    self.update_zero_and_negative_flags(
+                        self.regs[RegIdx::A as usize].wrapping_sub(data),
+                    );
+                }
+
+                // NOP double nop (read)
+                0x04 | 0x44 | 0x64 | 0x14 | 0x34 | 0x54 | 0x74 | 0xd4 | 0xf4 | 0x0c | 0x1c
+                | 0x3c | 0x5c | 0x7c | 0xdc | 0xfc => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let _data = self.mem_read(addr);
+                }
+
+                // ISB
+                0xe7 | 0xf7 | 0xef | 0xff | 0xfb | 0xe3 | 0xf3 => {
+                    let data = self.inc(&opcode.addr_mode);
+                    self.sub_to_reg_a(data);
+                }
+
+                // NOP (KIL | JAM)
+                0x02 | 0x12 | 0x22 | 0x32 | 0x42 | 0x52 | 0x62 | 0x72 | 0x92 | 0xb2 | 0xd2
+                | 0xf2 => { /* do nothing */ }
+
+                // LAS
+                0xbb => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let mut data = self.mem_read(addr);
+
+                    data = data & self.regs[RegIdx::SP as usize];
+
+                    self.set_reg_a(data);
+                    self.regs[RegIdx::X as usize] = data;
+                    self.regs[RegIdx::SP as usize] = data;
+
+                    self.update_zero_and_negative_flags(data);
+                }
+
+                // LAX
+                0xa7 | 0xb7 | 0xaf | 0xbf | 0xa3 | 0xb3 => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let data = self.mem_read(addr);
+                    self.set_reg_a_and_update_flags(data);
+
+                    self.regs[RegIdx::X as usize] = self.regs[RegIdx::A as usize];
+                }
+
+                // NOP
+                0x1a | 0x3a | 0x5a | 0x7a | 0xda | 0xfa => { /* do nothing */ }
+
+                // RLA
+                0x27 | 0x37 | 0x2F | 0x3F | 0x3b | 0x33 | 0x23 => {
+                    let data = self.rol(&opcode.addr_mode);
+                    self.and_with_reg_a(data);
+                }
+
+                // RRA
+                0x67 | 0x77 | 0x6f | 0x7f | 0x7b | 0x63 | 0x73 => {
+                    let data = self.ror(&opcode.addr_mode);
+                    self.add_to_reg_a(data);
+                }
+
+                // unofficial SBC
+                0xeb => {
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let data = self.mem_read(addr);
+                    self.sub_to_reg_a(data);
+                }
+
+                // SLO
+                0x07 | 0x17 | 0x0f | 0x1f | 0x1b | 0x03 | 0x13 => {
+                    let data = self.asl(&opcode.addr_mode);
+                    self.or_with_reg_a(data);
+                }
+
+                // SRE
+                0x47 | 0x57 | 0x4F | 0x5f | 0x5b | 0x43 | 0x53 => {
+                    let data = self.lsr(&opcode.addr_mode);
+                    self.xor_with_reg_a(data);
+                }
+
+                // SHX
+                0x9e => {
+                    let mem_addr =
+                        self.mem_read_u16(self.pc) + self.regs[RegIdx::Y as usize] as u16;
+
+                    let data = self.regs[RegIdx::X as usize] & ((mem_addr >> 8) as u8 + 1);
+
+                    self.mem_write(mem_addr, data);
+                }
+
+                // SHY
+                0x9c => {
+                    let mem_addr =
+                        self.mem_read_u16(self.pc) + self.regs[RegIdx::X as usize] as u16;
+
+                    let data = self.regs[RegIdx::Y as usize] & ((mem_addr >> 8) as u8 + 1);
+
+                    self.mem_write(mem_addr, data);
+                }
+
+                // NOP
+                0x80 | 0x82 | 0x89 | 0xc2 | 0xe2 => {
+                    /* 2 byte NOP (immediate ) */
+                    // todo: might be worth doing the read
+                }
+
+                // XAA
+                0x8b => {
+                    self.regs[RegIdx::A as usize] = self.regs[RegIdx::X as usize];
+                    self.update_zero_and_negative_flags(self.regs[RegIdx::A as usize]);
+                    let addr = self.get_operand_address(&opcode.addr_mode);
+                    let data = self.mem_read(addr);
+                    self.and_with_reg_a(data);
+                }
+
+                // TAS
+                0x9b => {
+                    let data = self.regs[RegIdx::A as usize] & self.regs[RegIdx::X as usize];
+                    self.regs[RegIdx::SP as usize] = data;
+                    let mem_addr =
+                        self.mem_read_u16(self.pc) + self.regs[RegIdx::Y as usize] as u16;
+
+                    let data = ((mem_addr >> 8) as u8 + 1) & self.regs[RegIdx::SP as usize];
+                    self.mem_write(mem_addr, data);
+                } //_ => todo!(),
+            };
 
             if pc_state == self.pc {
                 self.pc += (opcode.len - 1) as u16;
@@ -517,6 +754,14 @@ impl CPU {
         self.update_zero_and_negative_flags(value);
     }
 
+    fn set_reg_a(&mut self, value: u8) {
+        self.regs[RegIdx::A as usize] = value;
+    }
+
+    fn and_with_reg_a(&mut self, value: u8) {
+        self.set_reg_a(value & self.regs[RegIdx::A as usize]);
+    }
+
     fn add_to_reg_a(&mut self, data: u8) {
         let sum = self.regs[RegIdx::A as usize] as u16
             + data as u16
@@ -542,6 +787,18 @@ impl CPU {
         }
 
         self.set_reg_a_and_update_flags(result);
+    }
+
+    fn sub_to_reg_a(&mut self, data: u8) {
+        self.add_to_reg_a(((data as i8).wrapping_neg().wrapping_sub(1)) as u8);
+    }
+
+    fn or_with_reg_a(&mut self, data: u8) {
+        self.set_reg_a_and_update_flags(data | self.regs[RegIdx::A as usize]);
+    }
+
+    fn xor_with_reg_a(&mut self, data: u8) {
+        self.set_reg_a_and_update_flags(data ^ self.regs[RegIdx::A as usize]);
     }
 
     fn stack_pop(&mut self) -> u8 {
@@ -595,7 +852,7 @@ impl CPU {
         self.set_reg_a_and_update_flags(reg_a << 1);
     }
 
-    fn asl(&mut self, mode: &AddressingMode) {
+    fn asl(&mut self, mode: &AddressingMode) -> u8 {
         let addr = self.get_operand_address(mode);
         let mut data = self.mem_read(addr);
 
@@ -609,6 +866,8 @@ impl CPU {
 
         self.mem_write(addr, data);
         self.update_zero_and_negative_flags(data);
+
+        data
     }
 
     fn branch(&mut self, condition: bool) {
@@ -669,7 +928,7 @@ impl CPU {
         self.set_reg_a_and_update_flags(data ^ self.regs[RegIdx::A as usize]);
     }
 
-    fn inc(&mut self, mode: &AddressingMode) {
+    fn inc(&mut self, mode: &AddressingMode) -> u8 {
         let addr = self.get_operand_address(mode);
 
         let data = self.mem_read(addr).wrapping_add(1);
@@ -677,6 +936,8 @@ impl CPU {
         self.mem_write(addr, data);
 
         self.update_zero_and_negative_flags(data);
+
+        data
     }
 
     fn inx(&mut self) {
@@ -716,7 +977,7 @@ impl CPU {
         self.set_reg_a_and_update_flags(self.regs[idx] >> 1);
     }
 
-    fn lsr(&mut self, mode: &AddressingMode) {
+    fn lsr(&mut self, mode: &AddressingMode) -> u8 {
         let addr = self.get_operand_address(mode);
 
         let mut data = self.mem_read(addr);
@@ -726,6 +987,8 @@ impl CPU {
         data = data >> 1;
         self.mem_write(addr, data);
         self.update_zero_and_negative_flags(data);
+
+        data
     }
 
     fn ora(&mut self, mode: &AddressingMode) {
@@ -768,7 +1031,7 @@ impl CPU {
         self.set_reg_a_and_update_flags(reg_a);
     }
 
-    fn rol(&mut self, mode: &AddressingMode) {
+    fn rol(&mut self, mode: &AddressingMode) -> u8 {
         let addr = self.get_operand_address(mode);
 
         let mut data = self.mem_read(addr);
@@ -789,6 +1052,8 @@ impl CPU {
 
         self.mem_write(addr, data);
         self.update_zero_and_negative_flags(data);
+
+        data
     }
 
     fn ror_accumulator(&mut self) {
@@ -808,7 +1073,7 @@ impl CPU {
         self.set_reg_a_and_update_flags(reg_a);
     }
 
-    fn ror(&mut self, mode: &AddressingMode) {
+    fn ror(&mut self, mode: &AddressingMode) -> u8 {
         let addr = self.get_operand_address(mode);
 
         let mut data = self.mem_read(addr);
@@ -828,6 +1093,8 @@ impl CPU {
 
         self.mem_write(addr, data);
         self.update_zero_and_negative_flags(data);
+
+        data
     }
 
     fn sbc(&mut self, mode: &AddressingMode) {
