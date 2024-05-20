@@ -91,8 +91,9 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
 
 fn main() {
     // init sdl2
+    /*
     let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
+     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
         .window("Snake game", (32.0 * 10.0) as u32, (32.0 * 10.0) as u32)
         .position_centered()
@@ -107,9 +108,9 @@ fn main() {
     let mut texture = creator
         .create_texture_target(PixelFormatEnum::RGB24, 32, 32)
         .unwrap();
-
+    */
     //load the game
-    let bytes: Vec<u8> = std::fs::read("snake.nes").unwrap();
+    let bytes: Vec<u8> = std::fs::read("nestest.nes").unwrap();
     let rom = Rom::new(&bytes).unwrap();
 
     let bus = Bus::new(rom);
@@ -121,19 +122,19 @@ fn main() {
 
     // run the game cycle
     cpu.run_with_callback(move |cpu| {
-        //println!("{}", trace(cpu));
-        handle_user_input(cpu, &mut event_pump);
+        println!("{}", trace(cpu));
+        //handle_user_input(cpu, &mut event_pump);
 
-        cpu.mem_write(0xfe, rng.gen_range(1..16));
+        //cpu.mem_write(0xfe, rng.gen_range(1..16));
 
-        if read_screen_buffer(cpu, &mut screen_buffer) {
-            texture.update(None, &screen_buffer, 32 * 3).unwrap();
+        //if read_screen_buffer(cpu, &mut screen_buffer) {
+        //    texture.update(None, &screen_buffer, 32 * 3).unwrap();
 
-            canvas.copy(&texture, None, None).unwrap();
+        //    canvas.copy(&texture, None, None).unwrap();
 
-            canvas.present();
-        }
+        //    canvas.present();
+        //}
 
-        ::std::thread::sleep(std::time::Duration::new(0, 70_000));
+        //::std::thread::sleep(std::time::Duration::new(0, 70_000));
     });
 }
